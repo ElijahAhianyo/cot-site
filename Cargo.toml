@@ -20,7 +20,7 @@ async-trait = "0.1"
 blake3 = "1.8"
 chrono = "0.4"
 comrak = "0.54"
-cot = { version = "0.7", default-features = false }
+cot = { path = "../cot/cot", features = ["live-reload"] }
 cot-site-common = { path = "cot-site-common" }
 cot-site-macros = { path = "cot-site-macros" }
 grass = "0.13"

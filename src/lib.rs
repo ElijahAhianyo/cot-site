@@ -71,6 +71,50 @@ struct GuideLinkCategory {
     guides: Vec<GuideCategoryItem>,
 }
 
+impl GuideLinkCategory {
+    fn contains(&self, link: &str) -> bool {
+        self.guides
+            .iter()
+            .any(|item| item.contains_active_page(link))
+    }
+
+    fn first_link(&self) -> &str {
+        self.guides
+            .iter()
+            .find_map(|item| match item {
+                GuideCategoryItem::Page(page) => Some(page.link.as_str()),
+                GuideCategoryItem::SubCategory { pages, .. } => {
+                    pages.first().map(|page| page.link.as_str())
+                }
+            })
+            .unwrap_or("introduction")
+    }
+
+    fn kind(&self) -> &str {
+        match self.title {
+            "Guides" => "Explanation",
+            "Tutorials" => "Tutorial",
+            "How-to guides" => "How-to guide",
+            "Reference" => "Reference",
+            _ => self.title,
+        }
+    }
+
+    fn group_for(&self, link: &str) -> &str {
+        self.guides
+            .iter()
+            .find_map(|item| match item {
+                GuideCategoryItem::SubCategory { title, pages }
+                    if pages.iter().any(|page| page.link == link) =>
+                {
+                    Some(*title)
+                }
+                _ => None,
+            })
+            .unwrap_or("")
+    }
+}
+
 /// Internal representation of a guide item that gets rendered in the templates.
 #[derive(Debug, Clone)]
 enum GuideCategoryItem {
@@ -90,15 +134,7 @@ impl GuideCategoryItem {
             GuideCategoryItem::SubCategory { pages, .. } => {
                 pages.iter().any(|p| p.link == current_link)
             }
-            GuideCategoryItem::Page(_) => false,
-        }
-    }
-    /// Returns a unique ID for the category which bootstrap uses to
-    /// control the open/close behavior of the accordion
-    fn collapse_id(&self) -> String {
-        match self {
-            GuideCategoryItem::SubCategory { title, .. } => title.to_lowercase().replace(' ', "-"),
-            GuideCategoryItem::Page(_) => String::new(),
+            GuideCategoryItem::Page(page) => page.link == current_link,
         }
     }
 }
@@ -142,7 +178,8 @@ pub enum GuideItem {
 struct GuideTemplate<'a> {
     link_categories: &'a [GuideLinkCategory],
     guide: &'a MdPage,
-    versions: &'static [&'static str],
+    category: &'a GuideLinkCategory,
+    versions: &'a [&'static str],
     version: &'a str,
     display_version: &'a str,
     canonical_link: &'a str,
@@ -167,8 +204,14 @@ fn render_section(section: &Section) -> Safe<String> {
 
 const DEFAULT_GUIDE_PAGE: &str = "introduction";
 
-async fn guide(base_context: BaseContext) -> cot::Result<Response> {
-    reverse_redirect!(base_context.urls, "guide_version", version = "latest")
+async fn guide(base_context: BaseContext, pages: Arc<ParsedPages>) -> cot::Result<Response> {
+    // Local previews may omit historical content that exists on the public site.
+    let version = if pages.version_map.contains_key(LATEST_VERSION) {
+        "latest"
+    } else {
+        "master"
+    };
+    reverse_redirect!(base_context.urls, "guide_version", version = version)
 }
 
 async fn guide_version(
@@ -177,13 +220,17 @@ async fn guide_version(
     Path(version): Path<String>,
     pages: Arc<ParsedPages>,
 ) -> cot::Result<Html> {
-    page_response(
-        base_context,
-        search_index,
-        &version,
-        DEFAULT_GUIDE_PAGE,
-        pages,
-    )
+    let file_version = if version == "latest" {
+        LATEST_VERSION
+    } else {
+        &version
+    };
+    let landing = pages
+        .version_map
+        .get(file_version)
+        .filter(|pages| pages.guide_map.contains_key("start"))
+        .map_or(DEFAULT_GUIDE_PAGE, |_| "start");
+    page_response(base_context, search_index, &version, landing, pages)
 }
 
 async fn guide_page(
@@ -192,7 +239,17 @@ async fn guide_page(
     Path((version, page)): Path<(String, String)>,
     pages: Arc<ParsedPages>,
 ) -> cot::Result<Response> {
-    if page == DEFAULT_GUIDE_PAGE {
+    let file_version = if version == "latest" {
+        LATEST_VERSION
+    } else {
+        &version
+    };
+    let landing = pages
+        .version_map
+        .get(file_version)
+        .filter(|pages| pages.guide_map.contains_key("start"))
+        .map_or(DEFAULT_GUIDE_PAGE, |_| "start");
+    if page == landing {
         return Ok(reverse_redirect!(
             base_context.urls,
             "guide_version",
@@ -225,19 +282,35 @@ fn page_response(
     } else {
         version
     };
+    let available_versions: Vec<_> = ALL_VERSIONS
+        .iter()
+        .copied()
+        .filter(|version| pages.version_map.contains_key(version))
+        .collect();
     let pages = pages
         .version_map
         .get(file_version)
         .ok_or_else(NotFound::new)?;
     let guide = pages.guide_map.get(page).ok_or_else(NotFound::new)?;
     let (prev, next) = get_prev_next_link(&pages.categories_links, page);
-    let canonical_link = canonical_link(&base_context.urls, file_version, page)
-        .expect("Failed to create canonical link");
+    let canonical_link = canonical_link(
+        &base_context.urls,
+        file_version,
+        page,
+        pages.guide_map.contains_key("start"),
+    )
+    .expect("Failed to create canonical link");
 
+    let category = pages
+        .categories_links
+        .iter()
+        .find(|category| category.contains(page))
+        .ok_or_else(NotFound::new)?;
     let guide_template = GuideTemplate {
+        category,
         link_categories: &pages.categories_links,
         guide,
-        versions: ALL_VERSIONS,
+        versions: &available_versions,
         version,
         display_version: file_version,
         canonical_link: &canonical_link,
@@ -251,10 +324,15 @@ fn page_response(
     Ok(Html::new(rendered))
 }
 
-fn canonical_link(urls: &Urls, version: &str, page: &str) -> cot::Result<String> {
+fn canonical_link(urls: &Urls, version: &str, page: &str, has_start: bool) -> cot::Result<String> {
     const BASE_URL: &str = "https://cot.rs";
 
-    let path = if page == DEFAULT_GUIDE_PAGE {
+    let landing = if has_start {
+        "start"
+    } else {
+        DEFAULT_GUIDE_PAGE
+    };
+    let path = if page == landing {
         cot::reverse!(urls, "guide_version", version = version)?
     } else {
         cot::reverse!(urls, "guide_page", version = version, page = page)?
@@ -332,6 +410,7 @@ impl App for CotSiteApp {
     }
 
     fn router(&self) -> Router {
+        let pages_guide = self.pages.clone();
         let pages_guide_version = self.pages.clone();
         let pages_guide_page = self.pages.clone();
         let pages_guide_section_page = self.pages.clone();
@@ -340,7 +419,13 @@ impl App for CotSiteApp {
             Route::with_handler_and_name("/", index, "index"),
             Route::with_handler_and_name("/faq/", faq, "faq"),
             Route::with_handler_and_name("/licenses/", licenses, "licenses"),
-            Route::with_handler_and_name("/guide/", guide, "guide"),
+            Route::with_handler_and_name(
+                "/guide/",
+                async move |base_context: BaseContext| {
+                    guide(base_context, Arc::clone(&pages_guide)).await
+                },
+                "guide",
+            ),
             Route::with_handler_and_name("/_pagefind/{*file}", serve_pagefind, "serve_pagefind"),
             Route::with_handler_and_name(
                 "/guide/{version}/",
@@ -391,7 +476,7 @@ impl App for CotSiteApp {
     }
 
     fn static_files(&self) -> Vec<StaticFile> {
-        static_files!(
+        let mut files = static_files!(
             "favicon.ico",
             "static/css/main.css",
             "static/js/color-modes.js",
@@ -405,7 +490,12 @@ impl App for CotSiteApp {
             "static/images/favicon-512.png",
             "static/images/search.svg",
             "static/images/site.webmanifest",
-        )
+        );
+        files.push(StaticFile::new(
+            "static/js/bootstrap.bundle.min.js",
+            include_bytes!("../bootstrap/dist/js/bootstrap.bundle.min.js").as_slice(),
+        ));
+        files
     }
 
     async fn init(&self, context: &mut ProjectContext) -> cot::Result<()> {

@@ -56,6 +56,11 @@ export async function initSearch(pagefind, currentVersion) {
                        </div>
                     `).join('')}
                 `;
+                const metadata = document.createElement('p');
+                metadata.className = 'small text-body-secondary mb-1';
+                metadata.textContent = [data.meta.kind, data.meta.status, currentVersion]
+                    .filter(Boolean).join(' · ');
+                resultItem.prepend(metadata);
                 searchResultsList.appendChild(resultItem);
             }
         }

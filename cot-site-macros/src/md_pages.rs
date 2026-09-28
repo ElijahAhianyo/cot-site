@@ -73,6 +73,17 @@ fn read_md_page(link: &str) -> String {
 pub(super) fn quote_md_page(md_page: &MdPage) -> TokenStream {
     let link = &md_page.link;
     let title = &md_page.title;
+    let status = match md_page.status {
+        cot_site_common::md_pages::PageStatus::Published => {
+            quote! { cot_site_common::md_pages::PageStatus::Published }
+        }
+        cot_site_common::md_pages::PageStatus::Preview => {
+            quote! { cot_site_common::md_pages::PageStatus::Preview }
+        }
+        cot_site_common::md_pages::PageStatus::Proposed => {
+            quote! { cot_site_common::md_pages::PageStatus::Proposed }
+        }
+    };
     let content_html = &md_page.content_html;
     let sections = md_page.sections.iter().map(quote_section);
 
@@ -80,6 +91,7 @@ pub(super) fn quote_md_page(md_page: &MdPage) -> TokenStream {
         cot_site_common::md_pages::MdPage {
             link: String::from(#link),
             title: String::from(#title),
+            status: #status,
             content_html: String::from(#content_html),
             sections: vec![#(#sections),*],
         }
@@ -147,6 +159,7 @@ pub(super) fn parse_md_page(prefix: &str, link: &str, version: &str) -> MdPage {
     MdPage {
         link: link.to_string(),
         title: front_matter.title,
+        status: front_matter.status,
         content_html: md_page_content,
         sections: root_section.children,
     }

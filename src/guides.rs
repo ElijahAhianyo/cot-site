@@ -54,14 +54,33 @@ pub fn get_prev_next_link<'a>(
     guides: &'a [GuideLinkCategory],
     current_id: &str,
 ) -> (Option<&'a MdPageLink>, Option<&'a MdPageLink>) {
-    let all_links: Vec<&MdPageLink> = guides
-        .iter()
-        .flat_map(|category| category.guides.iter())
-        .flat_map(|item| match item {
-            GuideCategoryItem::Page(link) => vec![link],
-            GuideCategoryItem::SubCategory { pages, .. } => pages.iter().collect(),
-        })
-        .collect();
+    // The new layout has a sequence only within an individual tutorial.
+    // Historical versions retain their original guide navigation.
+    let all_links: Vec<&MdPageLink> = if guides.iter().any(|category| category.title == "Tutorials")
+    {
+        guides
+            .iter()
+            .filter(|category| category.title == "Tutorials")
+            .flat_map(|category| &category.guides)
+            .find_map(|item| match item {
+                GuideCategoryItem::SubCategory { pages, .. }
+                    if pages.iter().any(|page| page.link == current_id) =>
+                {
+                    Some(pages.iter().collect())
+                }
+                _ => None,
+            })
+            .unwrap_or_default()
+    } else {
+        guides
+            .iter()
+            .flat_map(|category| &category.guides)
+            .flat_map(|item| match item {
+                GuideCategoryItem::Page(link) => vec![link],
+                GuideCategoryItem::SubCategory { pages, .. } => pages.iter().collect(),
+            })
+            .collect()
+    };
 
     let mut prev = None;
     let mut has_found = false;
@@ -76,7 +95,11 @@ pub fn get_prev_next_link<'a>(
         }
     }
 
-    (prev, None)
+    if has_found {
+        (prev, None)
+    } else {
+        (None, None)
+    }
 }
 
 pub fn get_categories(master_version: Vec<(&'static str, Vec<GuideItem>)>) -> ParsedPages {
@@ -182,70 +205,70 @@ pub fn get_categories(master_version: Vec<(&'static str, Vec<GuideItem>)>) -> Pa
                 ),
             ],
         ),
-        (
-            "v0.6",
-            vec![
-                (
-                    "Getting started",
-                    vec![
-                        GuideItem::Page(md_page!("v0.6", "introduction")),
-                        GuideItem::Page(md_page!("v0.6", "templates")),
-                        GuideItem::Page(md_page!("v0.6", "forms")),
-                        GuideItem::Page(md_page!("v0.6", "db-models")),
-                        GuideItem::Page(md_page!("v0.6", "admin-panel")),
-                        GuideItem::Page(md_page!("v0.6", "static-files")),
-                        GuideItem::Page(md_page!("v0.6", "sending-emails")),
-                        GuideItem::Page(md_page!("v0.6", "caching")),
-                        GuideItem::Page(md_page!("v0.6", "error-pages")),
-                        GuideItem::Page(md_page!("v0.6", "openapi")),
-                        GuideItem::Page(md_page!("v0.6", "testing")),
-                    ],
-                ),
-                (
-                    "Upgrading",
-                    vec![GuideItem::Page(md_page!("v0.6", "upgrade-guide"))],
-                ),
-                (
-                    "About",
-                    vec![GuideItem::Page(md_page!("v0.6", "framework-comparison"))],
-                ),
-            ],
-        ),
-        (
-            "v0.7",
-            vec![
-                (
-                    "Getting started",
-                    vec![
-                        GuideItem::Page(md_page!("v0.7", "introduction")),
-                        GuideItem::Page(md_page!("v0.7", "templates")),
-                        GuideItem::Page(md_page!("v0.7", "forms")),
-                        GuideItem::SubCategory {
-                            title: "Database",
-                            pages: vec![
-                                md_page!("v0.7", "databases/overview"),
-                                md_page!("v0.7", "databases/queries"),
-                            ],
-                        },
-                        GuideItem::Page(md_page!("v0.7", "admin-panel")),
-                        GuideItem::Page(md_page!("v0.7", "static-files")),
-                        GuideItem::Page(md_page!("v0.7", "sending-emails")),
-                        GuideItem::Page(md_page!("v0.7", "caching")),
-                        GuideItem::Page(md_page!("v0.7", "error-pages")),
-                        GuideItem::Page(md_page!("v0.7", "openapi")),
-                        GuideItem::Page(md_page!("v0.7", "testing")),
-                    ],
-                ),
-                (
-                    "Upgrading",
-                    vec![GuideItem::Page(md_page!("v0.7", "upgrade-guide"))],
-                ),
-                (
-                    "About",
-                    vec![GuideItem::Page(md_page!("v0.7", "framework-comparison"))],
-                ),
-            ],
-        ),
+        // (
+        //     "v0.6",
+        //     vec![
+        //         (
+        //             "Getting started",
+        //             vec![
+        //                 GuideItem::Page(md_page!("v0.6", "introduction")),
+        //                 GuideItem::Page(md_page!("v0.6", "templates")),
+        //                 GuideItem::Page(md_page!("v0.6", "forms")),
+        //                 GuideItem::Page(md_page!("v0.6", "db-models")),
+        //                 GuideItem::Page(md_page!("v0.6", "admin-panel")),
+        //                 GuideItem::Page(md_page!("v0.6", "static-files")),
+        //                 GuideItem::Page(md_page!("v0.6", "sending-emails")),
+        //                 GuideItem::Page(md_page!("v0.6", "caching")),
+        //                 GuideItem::Page(md_page!("v0.6", "error-pages")),
+        //                 GuideItem::Page(md_page!("v0.6", "openapi")),
+        //                 GuideItem::Page(md_page!("v0.6", "testing")),
+        //             ],
+        //         ),
+        //         (
+        //             "Upgrading",
+        //             vec![GuideItem::Page(md_page!("v0.6", "upgrade-guide"))],
+        //         ),
+        //         (
+        //             "About",
+        //             vec![GuideItem::Page(md_page!("v0.6", "framework-comparison"))],
+        //         ),
+        //     ],
+        // ),
+        // (
+        //     "v0.7",
+        //     vec![
+        //         (
+        //             "Getting started",
+        //             vec![
+        //                 GuideItem::Page(md_page!("v0.7", "introduction")),
+        //                 GuideItem::Page(md_page!("v0.7", "templates")),
+        //                 GuideItem::Page(md_page!("v0.7", "forms")),
+        //                 GuideItem::SubCategory {
+        //                     title: "Database",
+        //                     pages: vec![
+        //                         md_page!("v0.7", "databases/overview"),
+        //                         md_page!("v0.7", "databases/queries"),
+        //                     ],
+        //                 },
+        //                 GuideItem::Page(md_page!("v0.7", "admin-panel")),
+        //                 GuideItem::Page(md_page!("v0.7", "static-files")),
+        //                 GuideItem::Page(md_page!("v0.7", "sending-emails")),
+        //                 GuideItem::Page(md_page!("v0.7", "caching")),
+        //                 GuideItem::Page(md_page!("v0.7", "error-pages")),
+        //                 GuideItem::Page(md_page!("v0.7", "openapi")),
+        //                 GuideItem::Page(md_page!("v0.7", "testing")),
+        //             ],
+        //         ),
+        //         (
+        //             "Upgrading",
+        //             vec![GuideItem::Page(md_page!("v0.7", "upgrade-guide"))],
+        //         ),
+        //         (
+        //             "About",
+        //             vec![GuideItem::Page(md_page!("v0.7", "framework-comparison"))],
+        //         ),
+        //     ],
+        // ),
         ("master", master_version),
     ]);
 
@@ -254,4 +277,91 @@ pub fn get_categories(master_version: Vec<(&'static str, Vec<GuideItem>)>) -> Pa
         .map(|(version, pages)| (version, parse_guides(pages)))
         .collect();
     ParsedPages { version_map }
+}
+
+#[cfg(test)]
+mod navigation_tests {
+    use super::*;
+    use cot_site_common::md_pages::PageStatus;
+
+    fn page(link: &str) -> MdPageLink {
+        MdPageLink {
+            link: link.into(),
+            title: link.into(),
+            status: PageStatus::Published,
+        }
+    }
+
+    #[test]
+    fn tutorial_navigation_stays_within_its_series() {
+        let categories = vec![GuideLinkCategory {
+            title: "Tutorials",
+            guides: vec![
+                GuideCategoryItem::Page(page("tutorials")),
+                GuideCategoryItem::SubCategory {
+                    title: "First app",
+                    pages: vec![page("one"), page("two")],
+                },
+                GuideCategoryItem::SubCategory {
+                    title: "API",
+                    pages: vec![page("api")],
+                },
+            ],
+        }];
+        let (prev, next) = get_prev_next_link(&categories, "one");
+        assert!(prev.is_none());
+        assert_eq!(next.unwrap().link, "two");
+        let (prev, next) = get_prev_next_link(&categories, "two");
+        assert_eq!(prev.unwrap().link, "one");
+        assert!(next.is_none());
+        assert_eq!(
+            get_prev_next_link(&categories, "api").0.map(|p| &p.link),
+            None
+        );
+        assert!(get_prev_next_link(&categories, "missing").0.is_none());
+        assert!(get_prev_next_link(&categories, "tutorials").1.is_none());
+    }
+
+    #[test]
+    fn explanatory_pages_have_no_artificial_reading_sequence() {
+        let categories = vec![
+            GuideLinkCategory {
+                title: "Tutorials",
+                guides: vec![],
+            },
+            GuideLinkCategory {
+                title: "Guides",
+                guides: vec![
+                    GuideCategoryItem::Page(page("routing")),
+                    GuideCategoryItem::Page(page("requests")),
+                ],
+            },
+        ];
+        let (prev, next) = get_prev_next_link(&categories, "routing");
+        assert!(prev.is_none() && next.is_none());
+        assert!(categories[1].contains("requests"));
+        assert_eq!(categories[1].kind(), "Explanation");
+    }
+
+    #[test]
+    fn legacy_navigation_still_crosses_groups() {
+        let categories = vec![GuideLinkCategory {
+            title: "Getting started",
+            guides: vec![
+                GuideCategoryItem::Page(page("introduction")),
+                GuideCategoryItem::SubCategory {
+                    title: "Database",
+                    pages: vec![page("queries")],
+                },
+            ],
+        }];
+        assert_eq!(
+            get_prev_next_link(&categories, "introduction")
+                .1
+                .unwrap()
+                .link,
+            "queries"
+        );
+        assert!(get_prev_next_link(&categories, "missing").0.is_none());
+    }
 }

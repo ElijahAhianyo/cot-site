@@ -1,72 +1,39 @@
-<div class="dropdown">
-    <button class="btn btn-secondary btn-sm dropdown-toggle version-switcher" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-        {{ display_version }}
-    </button>
-    <ul class="dropdown-menu">
-        {%- for ver in versions -%}
-        <li><a
-                class="dropdown-item{% if ver == &display_version %} active{% endif %}"
-                href="{{ cot::reverse!(urls, "guide_version", version = ver)? }}"
-            >{{ ver }}</a></li>
-        {%- endfor -%}
-    </ul>
+{% let nav_version = version %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <span class="doc-nav-caption">Documentation</span>
+    <div class="dropdown">
+        <button class="btn btn-secondary btn-sm dropdown-toggle version-switcher" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Documentation version">{{ display_version }}</button>
+        <ul class="dropdown-menu">
+            {% for ver in versions %}
+            <li><a class="dropdown-item{% if ver == &display_version %} active{% endif %}" href="{{ cot::reverse!(urls, "guide_version", version = ver)? }}">{{ ver }}</a></li>
+            {% endfor %}
+        </ul>
+    </div>
 </div>
-
-{%- let redirect_version = version -%}
-
-<nav class="w-100 guide-chapters" aria-label="Docs navigation">
-    <ul class="mb-0 pb-3 pb-md-2 pe-lg-2 text-body-secondary">
-        {%- for category in link_categories -%}
-        <li class="py-2">
-            <strong class="d-flex w-100 align-items-center fw-semibold">
-                {{ category.title }}
-            </strong>
-
-            <ul class="fw-normal pb-2 small">
-                {%- for item in category.guides -%}
-                {%- let is_active = item.contains_active_page(&guide.link) -%}
-                {%- match item -%}
-
-                {%- when GuideCategoryItem::Page(link) -%}
-                <li>
-                    <a href="{{ cot::reverse!(urls, "guide_page", version = redirect_version, page = link.link)? }}"
-                    class="guide-link d-inline-block{% if guide.link == link.link %} active{% endif %}">
-                    {{ link.title }}
-                    </a>
-                </li>
-
-                {%- when GuideCategoryItem::SubCategory { title, pages } -%}
-                {%- let collapse_id = item.collapse_id() -%}
-                <li class="guide-subcategory mt-1">
-                    <button
-                            class="guide-subcategory-toggle d-flex w-100 align-items-center gap-1{% if is_active %} active{% endif %}"
-                            type="button"
-                            data-bs-toggle="collapse"
-                            data-bs-target="#collapse-{{ collapse_id }}"
-                            aria-expanded="{{ is_active }}"
-                            aria-controls="collapse-{{ collapse_id }}"
-                    >
-                        <span>{{ title }}</span>
-                        {% include "icons/chevron_up_down.svg" -%}
-                    </button>
-                    <div class="collapse{% if is_active %} show{% endif %}" id="collapse-{{ collapse_id }}">
-                        <ul class="guide-subcategory-pages fw-normal small">
-                            {%- for page in pages -%}
-                            <li>
-                                <a href="{{ cot::reverse!(urls, "guide_page", version = redirect_version, page = page.link)? }}"
-                                class="guide-link d-inline-block{% if guide.link == page.link %} active{% endif %}">
-                                {{ page.title }}
-                                </a>
-                            </li>
-                            {%- endfor -%}
-                        </ul>
-                    </div>
-                </li>
-
-                {%- endmatch -%}
-                {%- endfor -%}
-            </ul>
-        </li>
-        {%- endfor -%}
-    </ul>
+<nav class="guide-chapters" aria-label="Documentation navigation">
+    {% for nav_category in link_categories %}
+    {% if nav_category.title != "Blog" %}
+    <details class="doc-nav-area" {% if nav_category.contains(&guide.link) %}open{% endif %}>
+        <summary>{{ nav_category.title }}</summary>
+        <ul>
+            {% for item in nav_category.guides %}
+            {% match item %}
+            {% when GuideCategoryItem::Page(link) %}
+            <li><a href="{{ cot::reverse!(urls, "guide_page", version = nav_version, page = link.link)? }}" class="guide-link{% if guide.link == link.link %} active{% endif %}" {% if guide.link == link.link %}aria-current="page"{% endif %}>{{ link.title }}{% if !link.status.label().is_empty() %}<span class="doc-status">{{ link.status.label() }}</span>{% endif %}</a></li>
+            {% when GuideCategoryItem::SubCategory { title, pages } %}
+            <li><details class="doc-nav-group" {% if item.contains_active_page(&guide.link) %}open{% endif %}>
+                <summary>{{ title }}</summary>
+                <ul>
+                {% for link in pages %}
+                    <li><a href="{{ cot::reverse!(urls, "guide_page", version = nav_version, page = link.link)? }}" class="guide-link{% if guide.link == link.link %} active{% endif %}" {% if guide.link == link.link %}aria-current="page"{% endif %}>{{ link.title }}{% if !link.status.label().is_empty() %}<span class="doc-status">{{ link.status.label() }}</span>{% endif %}</a></li>
+                {% endfor %}
+                </ul>
+            </details></li>
+            {% endmatch %}
+            {% endfor %}
+        </ul>
+    </details>
+    {% endif %}
+    {% endfor %}
+    <a class="doc-api-link" href="https://docs.rs/cot/latest/cot/">Rust API <span aria-hidden="true">↗</span></a>
 </nav>

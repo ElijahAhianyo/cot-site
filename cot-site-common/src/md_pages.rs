@@ -9,6 +9,7 @@ use serde::Deserialize;
 pub struct MdPage {
     pub link: String,
     pub title: String,
+    pub status: PageStatus,
     pub content_html: String,
     pub sections: Vec<Section>,
 }
@@ -18,6 +19,7 @@ impl From<&MdPage> for MdPageLink {
         Self {
             link: value.link.clone(),
             title: value.title.clone(),
+            status: value.status,
         }
     }
 }
@@ -26,11 +28,46 @@ impl From<&MdPage> for MdPageLink {
 pub struct MdPageLink {
     pub link: String,
     pub title: String,
+    pub status: PageStatus,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct FrontMatter {
     pub title: String,
+    #[serde(default)]
+    pub status: PageStatus,
+}
+
+/// Editorial status, independent of the documentation version.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PageStatus {
+    #[default]
+    Published,
+    Preview,
+    Proposed,
+}
+
+impl PageStatus {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Published => "",
+            Self::Preview => "Preview",
+            Self::Proposed => "Proposed",
+        }
+    }
+
+    pub fn notice(self) -> &'static str {
+        match self {
+            Self::Published => "",
+            Self::Preview => {
+                "Documentation preview. This page illustrates the intended coverage and organization. It is not a complete implementation guide; consult the linked source and Rust API for currently available behavior."
+            }
+            Self::Proposed => {
+                "Proposed feature. This capability is not currently supported by Cot. The examples explain a possible design, not an available API or a release commitment."
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

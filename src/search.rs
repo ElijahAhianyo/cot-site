@@ -34,9 +34,18 @@ impl SearchIndex {
             for (page_id, page) in &pages.guide_map {
                 let url = cot::reverse!(urls, "guide_page", version = version, page = page_id)
                     .expect("Failed to reverse URL for guide page");
+                let kind = pages
+                    .categories_links
+                    .iter()
+                    .find(|category| category.contains(page_id))
+                    .map_or("Guide", |category| category.kind());
                 let html = format!(
-                    r#"<html><body><article data-pagefind-body data-pagefind-filter="version:{}"><h1>{}</h1>{}</article></body></html>"#,
-                    version, page.title, page.content_html
+                    r#"<html><body><article data-pagefind-body data-pagefind-filter="version:{}"><span data-pagefind-meta="kind">{}</span><span data-pagefind-meta="status">{}</span><h1>{}</h1>{}</article></body></html>"#,
+                    version,
+                    kind,
+                    page.status.label(),
+                    page.title,
+                    page.content_html
                 );
                 indexer
                     .add_html_file(None, Some(url), html)

@@ -1,6 +1,6 @@
 {% extends "_base.html" %}
 
-{% block title %}{{ guide.title }} | Guide{% endblock %}
+{% block title %}{{ guide.title }} | Documentation{% endblock %}
 
 {% block head %}
     {% let display_version = display_version %}
@@ -13,7 +13,7 @@
     <div class="row">
         <div class="offcanvas offcanvas-start" tabindex="-1" id="cot-guide-chapters" aria-labelledby="cot-guide-chapters-label" data-bs-theme="dark">
             <div class="offcanvas-header border-bottom">
-                <h5 class="offcanvas-title" id="cot-guide-chapters-label">Guide chapters</h5>
+                <h5 class="offcanvas-title" id="cot-guide-chapters-label">Documentation</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close" data-bs-target="#cot-guide-chapters"></button>
             </div>
 
@@ -24,7 +24,7 @@
 
         <aside class="col-12 col-lg-auto pt-4 me-xxl-5 sticky-sidebar">
             <div class="mb-3 me-lg-2">
-                <input type="search" class="form-control form-control-sm rounded-pill" id="cot-search" placeholder="Search guide..." aria-label="Search guide">
+                <input type="search" class="form-control form-control-sm rounded-pill" id="cot-search" placeholder="Search documentation..." aria-label="Search documentation">
             </div>
 
             <div class="d-none d-lg-block">
@@ -48,22 +48,33 @@
         <article class="col cot-guide mt-3 px-lg-3 px-xl-5" data-bs-spy="scroll" data-bs-target="#page-toc" data-bs-offset="0" tabindex="0">
             {%- if version != "latest" && version != "master" && version != latest_version -%}
             <div class="alert alert-warning" role="alert">
-                This guide is for an old Cot's version. Please check out the <a
-                    href="{{ cot::reverse!(urls, "guide_version", version = "latest")? }}"
+                This documentation is for an older version of Cot. Please check out the <a
+                    href="https://cot.rs/guide/latest/"
                 >latest</a> version!
             </div>
             {%- endif -%}
             {%- if version == "master" -%}
             <div class="alert alert-warning" role="alert">
-                This guide is for an <strong>unreleased</strong> version of Cot.
-                If that's not what you want, check out the <a href="{{ cot::reverse!(urls, "guide_version", version = "latest")? }}">latest</a> version!
+                This documentation follows the <strong>development</strong> version of Cot.
+                If that's not what you want, check out the <a href="https://cot.rs/guide/latest/">latest</a> version!
             </div>
             {%- endif -%}
+            {% let category_link = category.first_link() %}
+            <nav class="doc-breadcrumbs" aria-label="Breadcrumb">
+                <a href="{{ cot::reverse!(urls, "guide_page", version = redirect_version, page = category_link)? }}">{{ category.title }}</a>
+                {% if !category.group_for(&guide.link).is_empty() %}<span aria-hidden="true">/</span><span>{{ category.group_for(&guide.link) }}</span>{% endif %}
+                <span aria-hidden="true">/</span><span aria-current="page">{{ guide.title }}</span>
+            </nav>
+            <div class="doc-page-kind">{{ category.kind() }}</div>
             <h1>{{ guide.title }}</h1>
+            {% if !guide.status.label().is_empty() %}
+            <aside class="doc-preview-note" aria-label="{{ guide.status.label() }} status">{{ guide.status.notice() }}</aside>
+            {% endif %}
 
             {{- guide.content_html|safe -}}
 
-            <nav class="border-top border-secondary-subtle py-4 d-flex flex-row flex-wrap">
+            {% if prev.is_some() || next.is_some() %}
+            <nav aria-label="Tutorial sequence" class="border-top border-secondary-subtle py-4 d-flex flex-row flex-wrap">
                 {%- if let Some(prev) = &prev -%}
                 <a href="{{ cot::reverse!(urls, "guide_page", version = redirect_version, page = prev.link)? }}" class="link-secondary link-underline-opacity-0" rel="prev">
                     {%- include "icons/chevron_left.svg" -%}
@@ -77,6 +88,7 @@
                 </a>
                 {%- endif %}
             </nav>
+            {% endif %}
         </article>
     </div>
 </div>

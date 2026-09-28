@@ -60,10 +60,13 @@
                 {%- let route_name = base_context.route_name -%}
                 <ul class="navbar-nav flex-grow-1 pe-3">
                     <li class="nav-item">
-                        <a class="nav-link{% if route_name == "guide" || route_name == "guide_version" || route_name == "guide_page" %} active{% endif %}" href="{{ cot::reverse!(urls, "guide")? }}">Guide</a>
+                        <a class="nav-link{% if guide is defined %}{% if !guide.link.starts_with("blog/") %} active{% endif %}{% else if route_name == "guide" || route_name == "guide_version" %} active{% endif %}" href="{% if guide is defined %}{{ cot::reverse!(urls, "guide_version", version = display_version)? }}{% else %}{{ cot::reverse!(urls, "guide")? }}{% endif %}">Documentation</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="https://docs.rs/cot">Docs</a>
+                        <a class="nav-link{% if guide is defined %}{% if guide.link.starts_with("blog/") %} active{% endif %}{% endif %}" href="{{ cot::reverse!(urls, "guide_page", version = "master", page = "blog/overview")? }}">Blog</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="https://docs.rs/cot">Rust API</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link{% if route_name == "faq" %} active{% endif %}" href="{{ cot::reverse!(urls, "faq")? }}">FAQ</a>
@@ -179,7 +182,7 @@
     </div>
 </footer>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+<script src="{{ base_context.static_files.url_for("static/js/bootstrap.bundle.min.js")? }}"></script>
 
 </body>
 </html>
