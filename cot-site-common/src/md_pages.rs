@@ -61,7 +61,7 @@ impl PageStatus {
         match self {
             Self::Published => "",
             Self::Preview => {
-                "Documentation preview. This page illustrates the intended coverage and organization. It is not a complete implementation guide; consult the linked source and Rust API for currently available behavior."
+                "Documentation draft. This page is being reviewed as part of the documentation preview. Consult the Rust API for details specific to the Cot version you use."
             }
             Self::Proposed => {
                 "Proposed feature. This capability is not currently supported by Cot. The examples explain a possible design, not an available API or a release commitment."
