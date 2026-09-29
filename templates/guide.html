@@ -9,9 +9,10 @@
 {% endblock %}
 
 {% block content -%}
+<a class="doc-skip-link" href="#doc-content">Skip to content</a>
 <div class="container">
     <div class="row">
-        <div class="offcanvas offcanvas-start" tabindex="-1" id="cot-guide-chapters" aria-labelledby="cot-guide-chapters-label" data-bs-theme="dark">
+        <div class="offcanvas offcanvas-start" tabindex="-1" id="cot-guide-chapters" aria-labelledby="cot-guide-chapters-label">
             <div class="offcanvas-header border-bottom">
                 <h5 class="offcanvas-title" id="cot-guide-chapters-label">Documentation</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close" data-bs-target="#cot-guide-chapters"></button>
@@ -22,12 +23,12 @@
             </div>
         </div>
 
-        <aside class="col-12 col-lg-auto pt-4 me-xxl-5 sticky-sidebar">
-            <div class="mb-3 me-lg-2">
-                <input type="search" class="form-control form-control-sm rounded-pill" id="cot-search" placeholder="Search documentation..." aria-label="Search documentation">
+        <aside class="col-12 col-lg-auto pt-4 sticky-sidebar">
+            <div class="doc-search-box">
+                <input type="search" class="form-control form-control-sm" id="cot-search" placeholder="Search documentation…" aria-label="Search documentation"><kbd aria-hidden="true">/</kbd>
             </div>
 
-            <div class="d-none d-lg-block">
+            <div class="d-none d-lg-block doc-sidebar-body">
                 {%- include "_guide_chapters.html" -%}
             </div>
         </aside>
@@ -45,7 +46,7 @@
             <div id="search-results-list" class="mt-4"></div>
         </div>
 
-        <article class="col cot-guide mt-3 px-lg-3 px-xl-5" data-bs-spy="scroll" data-bs-target="#page-toc" data-bs-offset="0" tabindex="0">
+        <article id="doc-content" class="col cot-guide mt-3 px-lg-3 px-xl-5" data-bs-spy="scroll" data-bs-target="#page-toc" data-bs-offset="0" tabindex="0">
             {%- if version != "latest" && version != "master" && version != latest_version -%}
             <div class="alert alert-warning" role="alert">
                 This documentation is for an older version of Cot. Please check out the <a
@@ -94,6 +95,45 @@
 </div>
 
 <script src="{{ base_context.static_files.url_for("static/js/code-copy.js")? }}"></script>
+<script>
+    // Keep the section controls visible; only the page list scrolls.
+    function revealCurrentPage(nav) {
+        const list = nav.querySelector('.doc-nav-scroll');
+        const active = list?.querySelector('[aria-current="page"]');
+        if (!active || !list.clientHeight) return;
+        const item = active.getBoundingClientRect();
+        const box = list.getBoundingClientRect();
+        if (item.bottom > box.bottom || item.top < box.top) {
+            const topicTop = active.closest('.doc-topic')?.getBoundingClientRect().top ?? item.top;
+            const start = item.bottom - topicTop < list.clientHeight - 24 ? topicTop : item.top - 60;
+            list.scrollTop += start - box.top - 8;
+        }
+    }
+    document.querySelectorAll('.guide-chapters').forEach(nav => {
+        const picker = nav.querySelector('.doc-topic-picker');
+        const select = picker?.querySelector('select');
+        if (select && select.options.length === 1) picker.hidden = true;
+        select?.addEventListener('change', () => {
+            const topic = [...nav.querySelectorAll('.doc-topic')].find(item => item.dataset.topic === select.value);
+            const list = nav.querySelector('.doc-nav-scroll');
+            if (!topic || !list) return;
+            list.scrollTop += topic.getBoundingClientRect().top - list.getBoundingClientRect().top;
+            topic.querySelector('a')?.focus({ preventScroll: true });
+            select.value = '';
+        });
+        revealCurrentPage(nav);
+    });
+    document.getElementById('cot-guide-chapters').addEventListener('shown.bs.offcanvas', event => {
+        revealCurrentPage(event.target.querySelector('.guide-chapters'));
+    });
+    document.addEventListener('keydown', event => {
+        const target = event.target;
+        if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey ||
+            target.closest('input, textarea, select, [contenteditable="true"]')) return;
+        event.preventDefault();
+        document.getElementById('cot-search').focus();
+    });
+</script>
 <script type="module">
     const currentVersion = "{{ display_version }}";
     const pagefind = await import("{{ search_index.get_pagefind_url(base_context.urls) }}");
